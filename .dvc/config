@@ -1,4 +1,4 @@
 [core]
     remote = myremote
 ['remote "myremote"']
-    url = C:\Users\kabur\dvc-storage
+    url = s3://segdxthxthh
