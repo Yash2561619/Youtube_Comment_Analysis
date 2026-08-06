@@ -18,28 +18,24 @@ mlflow.set_tracking_uri(
 
 
 @pytest.mark.parametrize(
-    "model_name, stage, vectorizer_path",
-    [("lgbm_model", "Staging", "tfidf_vectorizer.pkl")],
+    "model_name, vectorizer_path",
+    [("lgbm_model", "tfidf_vectorizer.pkl")],
 )
-def test_model_with_vectorizer(model_name, stage, vectorizer_path):
+def test_model_with_vectorizer(model_name, vectorizer_path):
   client = MlflowClient()
 
-  # 1. Fetch all versions for the model name without passing stage in query string
+  # 1. Fetch all registered versions of the model
   all_versions = client.search_model_versions(f"name='{model_name}'")
 
-  # 2. Filter versions for the requested stage in Python
-  staging_versions = [
-      mv for mv in all_versions if mv.current_stage.lower() == stage.lower()
-  ]
-
   assert (
-      len(staging_versions) > 0
-  ), f"No model found in the '{stage}' stage for '{model_name}'"
+      len(all_versions) > 0
+  ), f"No registered versions found for model '{model_name}'"
 
-  latest_version = staging_versions[0].version
+  # 2. Get the latest version number automatically
+  latest_version = max([int(mv.version) for mv in all_versions])
 
   try:
-    # 3. Load model from registry
+    # 3. Load model using latest version number
     model_uri = f"models:/{model_name}/{latest_version}"
     model = mlflow.pyfunc.load_model(model_uri)
 
