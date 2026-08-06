@@ -3,7 +3,6 @@ import pickle
 import mlflow
 import pandas as pd
 import pytest
-from mlflow.tracking import MlflowClient
 
 # DagsHub Credentials
 os.environ["MLFLOW_TRACKING_USERNAME"] = "Yash2561619"
@@ -18,28 +17,31 @@ mlflow.set_tracking_uri(
 
 
 @pytest.mark.parametrize(
-    "model_name, vectorizer_path",
+    "model_artifact_path, vectorizer_path",
     [("lgbm_model", "tfidf_vectorizer.pkl")],
 )
-def test_model_with_vectorizer(model_name, vectorizer_path):
-  client = MlflowClient()
-
-  # 1. Fetch all registered versions of the model
-  all_versions = client.search_model_versions(f"name='{model_name}'")
-
+def test_model_with_vectorizer(model_artifact_path, vectorizer_path):
+  # 1. Search for the latest run in the MLflow experiment
+  experiment = mlflow.get_experiment_by_name("dvc-pipeline-runs")
   assert (
-      len(all_versions) > 0
-  ), f"No registered versions found for model '{model_name}'"
+      experiment is not None
+  ), "Experiment 'dvc-pipeline-runs' not found in MLflow."
 
-  # 2. Get the latest version number automatically
-  latest_version = max([int(mv.version) for mv in all_versions])
+  runs = mlflow.search_runs(
+      experiment_ids=[experiment.experiment_id],
+      order_by=["start_time DESC"],
+      max_results=1,
+  )
+
+  assert not runs.empty, "No runs found in MLflow experiment."
+  latest_run_id = runs.iloc[0]["run_id"]
 
   try:
-    # 3. Load model using latest version number
-    model_uri = f"models:/{model_name}/{latest_version}"
+    # 2. Load the model directly from the latest run's artifact path
+    model_uri = f"runs:/{latest_run_id}/{model_artifact_path}"
     model = mlflow.pyfunc.load_model(model_uri)
 
-    # 4. Load vectorizer
+    # 3. Load vectorizer from root directory
     root_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "../")
     )
@@ -48,17 +50,17 @@ def test_model_with_vectorizer(model_name, vectorizer_path):
     with open(full_vectorizer_path, "rb") as file:
       vectorizer = pickle.load(file)
 
-    # 5. Transform sample text input
+    # 4. Transform sample input text
     input_text = "hi how are you"
     input_data = vectorizer.transform([input_text])
     input_df = pd.DataFrame(
         input_data.toarray(), columns=vectorizer.get_feature_names_out()
     )
 
-    # 6. Predict using loaded pyfunc model
+    # 5. Predict using loaded pyfunc model
     prediction = model.predict(input_df)
 
-    # 7. Assertions
+    # 6. Assertions
     assert input_df.shape[1] == len(
         vectorizer.get_feature_names_out()
     ), "Input feature count mismatch"
