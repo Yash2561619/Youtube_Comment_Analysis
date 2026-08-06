@@ -11,7 +11,7 @@ os.environ["MLFLOW_TRACKING_PASSWORD"] = (
     "8317bf6a6fd7950f6097e966791ba44c9524117b"
 )
 
-# Use DagsHub Tracking URI
+# Set DagsHub Tracking URI
 mlflow.set_tracking_uri(
     "https://dagshub.com/Yash2561619/Youtube_Comment_Analysis.mlflow"
 )
@@ -24,31 +24,45 @@ mlflow.set_tracking_uri(
 def test_model_with_vectorizer(model_name, stage, vectorizer_path):
   client = MlflowClient()
 
-  # Fetch versions for target stage
-  versions = client.search_model_versions(
-      f"name='{model_name}' and current_stage='{stage}'"
-  )
+  # 1. Fetch all versions for the model name without passing stage in query string
+  all_versions = client.search_model_versions(f"name='{model_name}'")
+
+  # 2. Filter versions for the requested stage in Python
+  staging_versions = [
+      mv for mv in all_versions if mv.current_stage.lower() == stage.lower()
+  ]
+
   assert (
-      len(versions) > 0
+      len(staging_versions) > 0
   ), f"No model found in the '{stage}' stage for '{model_name}'"
 
-  latest_version = versions[0].version
+  latest_version = staging_versions[0].version
 
   try:
+    # 3. Load model from registry
     model_uri = f"models:/{model_name}/{latest_version}"
     model = mlflow.pyfunc.load_model(model_uri)
 
-    with open(vectorizer_path, "rb") as file:
+    # 4. Load vectorizer
+    root_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../")
+    )
+    full_vectorizer_path = os.path.join(root_dir, vectorizer_path)
+
+    with open(full_vectorizer_path, "rb") as file:
       vectorizer = pickle.load(file)
 
+    # 5. Transform sample text input
     input_text = "hi how are you"
     input_data = vectorizer.transform([input_text])
     input_df = pd.DataFrame(
         input_data.toarray(), columns=vectorizer.get_feature_names_out()
     )
 
+    # 6. Predict using loaded pyfunc model
     prediction = model.predict(input_df)
 
+    # 7. Assertions
     assert input_df.shape[1] == len(
         vectorizer.get_feature_names_out()
     ), "Input feature count mismatch"
