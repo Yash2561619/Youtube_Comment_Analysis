@@ -128,3 +128,22 @@ jobs:
       - name: Run Flask API tests
         run: |
           python -m pytest scripts/test_flask_api.py
+
+      - name: Login to AWS ECR
+        if: success()
+        run: |
+          aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 947612420684.dkr.ecr.ap-southeast-2.amazonaws.com
+      - name: Build Docker image
+        if: success()
+        run: |
+          docker build -t yt-chrome-pluging .
+
+      - name: Tag Docker image
+        if: success()
+        run: |
+          docker tag yt-chrome-pluging:latest 947612420684.dkr.ecr.ap-southeast-2.amazonaws.com/yt-chrome-pluging:latest
+
+      - name: Push Docker image to AWS ECR
+        if: success()
+        run: |
+          docker push 947612420684.dkr.ecr.ap-southeast-2.amazonaws.com/yt-chrome-pluging:latest
