@@ -69,7 +69,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git pull --rebase origin ${{ github.ref_name }}
+          git fetch origin ${{ github.ref_name }}
+          git pull --rebase -X theirs origin ${{ github.ref_name }} || (git checkout --ours dvc.lock && git add dvc.lock && git rebase --continue)
           git push origin ${{ github.ref_name }}
 
       - name: Run model tests
@@ -148,7 +149,7 @@ jobs:
             # 1. Configure AWS credentials on EC2
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            
+
             # 2. Log in to AWS ECR on EC2
             aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 947612420684.dkr.ecr.ap-southeast-2.amazonaws.com
 
