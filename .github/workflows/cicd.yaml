@@ -66,8 +66,9 @@ jobs:
           git add dvc.lock dvc.yaml
           if ! git diff --cached --quiet; then
             git commit -m "Automated commit of DVC outputs and updated code [skip ci]"
+            git stash --include-untracked || true
             git fetch origin ${{ github.ref_name }}
-            git pull --rebase -X ours origin ${{ github.ref_name }} || (git checkout --ours dvc.lock && git add dvc.lock && git -c core.editor=true rebase --continue)
+            git pull --rebase -X ours origin ${{ github.ref_name }}
             git push origin ${{ github.ref_name }}
           else
             echo "No DVC changes to commit"
