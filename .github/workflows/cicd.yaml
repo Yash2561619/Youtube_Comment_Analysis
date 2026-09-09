@@ -58,20 +58,20 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add and commit changes
-        if: ${{ github.actor != 'github-actions[bot]' }}
-        run: |
-          git add .
-          git commit -m "Automated commit of DVC outputs and updated code [skip ci]" || echo "No changes to commit"
-
-      - name: Push changes
+      - name: Commit and push changes
         if: ${{ github.actor != 'github-actions[bot]' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch origin ${{ github.ref_name }}
-          git pull --rebase -X theirs origin ${{ github.ref_name }} || (git checkout --ours dvc.lock && git add dvc.lock && git rebase --continue)
-          git push origin ${{ github.ref_name }}
+          git add dvc.lock dvc.yaml
+          if ! git diff --cached --quiet; then
+            git commit -m "Automated commit of DVC outputs and updated code [skip ci]"
+            git fetch origin ${{ github.ref_name }}
+            git pull --rebase -X ours origin ${{ github.ref_name }} || (git checkout --ours dvc.lock && git add dvc.lock && git -c core.editor=true rebase --continue)
+            git push origin ${{ github.ref_name }}
+          else
+            echo "No DVC changes to commit"
+          fi
 
       - name: Run model tests
         env:
